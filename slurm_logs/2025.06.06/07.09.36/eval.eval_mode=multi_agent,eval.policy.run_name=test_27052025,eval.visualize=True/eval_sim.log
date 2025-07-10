@@ -1,0 +1,3 @@
+[2025-06-06 07:09:48,840][py.warnings][WARNING] - /home/ctrl-sim/nocturne/bicycle_model.py:96: RuntimeWarning: invalid value encountered in sqrt
+  steer = np.arctan(2.0 * C / np.sqrt(4 - C**2))
+

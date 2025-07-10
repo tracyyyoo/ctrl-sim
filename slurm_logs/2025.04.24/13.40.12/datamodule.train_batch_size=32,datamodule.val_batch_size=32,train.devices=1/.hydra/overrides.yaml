@@ -1,0 +1,3 @@
+- train.devices=1
+- datamodule.train_batch_size=32
+- datamodule.val_batch_size=32

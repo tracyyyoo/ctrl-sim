@@ -1,0 +1,5 @@
+- eval.policy.run_name=test
+- eval.eval_mode=one_agent
+- eval.policy.goal_tilt=0
+- eval.policy.veh_veh_tilt=-20
+- eval.policy.veh_edge_tilt=0

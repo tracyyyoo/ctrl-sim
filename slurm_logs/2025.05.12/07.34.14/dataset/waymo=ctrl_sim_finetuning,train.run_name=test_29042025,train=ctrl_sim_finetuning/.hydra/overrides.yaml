@@ -1,0 +1,3 @@
+- train.run_name=test_29042025
+- train=ctrl_sim_finetuning
+- dataset/waymo=ctrl_sim_finetuning

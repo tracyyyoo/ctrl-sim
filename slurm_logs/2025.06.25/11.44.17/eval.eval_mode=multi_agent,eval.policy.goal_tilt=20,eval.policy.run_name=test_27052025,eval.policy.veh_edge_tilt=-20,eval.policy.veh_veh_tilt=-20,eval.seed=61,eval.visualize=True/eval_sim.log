@@ -1,0 +1,6 @@
+[2025-06-25 11:44:26,514][py.warnings][WARNING] - /home/ctrl-sim/nocturne/bicycle_model.py:96: RuntimeWarning: invalid value encountered in sqrt
+  steer = np.arctan(2.0 * C / np.sqrt(4 - C**2))
+
+[2025-06-25 11:44:26,532][py.warnings][WARNING] - /home/ctrl-sim/datasets/rl_waymo/dataset.py:214: RuntimeWarning: invalid value encountered in subtract
+  diff = ag_positions[:, np.newaxis] - ag_positions[np.newaxis, :]
+

@@ -1,0 +1,4 @@
+- train.run_name=test
+- train=ctrl_sim_finetuning
+- dataset/waymo=ctrl_sim_finetuning
+- train.devices=1
