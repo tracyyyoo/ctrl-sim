@@ -28,8 +28,8 @@ def get_object_type_onehot(agent_type):
     return np.eye(len(agent_types))[agent_types[agent_type]]
 
 
-path = r"C:\Users\cwang76\AppData\Local\Google\Cloud SDK\viz_20092025"
-save_dir='./edge_collision_1000'
+path = r"C:\Users\cwang76\AppData\Local\Google\Cloud SDK\viz_20092025"    # input folder (not the path to a file)
+save_dir='./edge_collision_1000'      # output fodler
 max_num_roads_pts_per_polyline = 100
 
 files = os.listdir(path)
