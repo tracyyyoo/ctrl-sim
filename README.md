@@ -9,8 +9,8 @@ Original Scenario from Waymo Open Motion Dataset, with negative tilting and posi
 
 # Results of a T-Intersection scenaro
 <p align="center">
-  <img src="assets/147_original.gif.gif" alt="img1" width="32%">
-  <img src="assets/147_negative1.gif" alt="img2" width="32%">
+  <img src="assets/147_original.gif" alt="img1" width="32%">
+  <img src="assets/147_negative.gif" alt="img2" width="32%">
   <img src="assets/147_negative2.gif" alt="img3" width="32%">
 </p>
 Original scenario at left and negative tilting for both in right. 
