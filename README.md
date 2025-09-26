@@ -5,7 +5,7 @@
   <img src="assets/negative_roundabout293.gif" alt="img2" width="32%">
   <img src="assets/positive_roundabout293.gif" alt="img3" width="32%">
 </p>
-Original Scenario from Waymo Open Motion Dataset, with negative tilting and positive tilting respectively. 
+Original Scenario from Waymo Open Motion Dataset, with negative tilting and positive tilting respectively. The agent in green is controlled by CtRL-Sim and the others are in log-replay. 
 
 
 ![img](assets/roundabout506.png)
