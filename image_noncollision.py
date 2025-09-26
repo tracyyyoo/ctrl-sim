@@ -1,0 +1,290 @@
+"""
+This script is to generate image of the scenarios without collision.Just plot the trajectory of agents selected
+For having the comparison for report or presentation
+"""
+import matplotlib.pyplot as plt 
+import numpy as np 
+import os 
+import json
+import math
+from tqdm import tqdm 
+from matplotlib.patches import FancyBboxPatch
+from matplotlib.patches import Rectangle
+from matplotlib.patches import Polygon
+import matplotlib.patches as mpatches
+import matplotlib.transforms as transforms
+import pickle
+
+# PATH should be a folder that contains json files 
+PATH = r"C:\Users\cwang76\AppData\Local\Google\Cloud SDK\viz_results_050920253"
+TIME_TO_STOP = 80   # how many timestep to plot the trajectory (sampling rate is 10Hz )
+save_dir = './test_noncollision_04092025'
+OTHER_DIX = 3   # id of interactive agent
+
+def radiens_to_degrees(radians):
+    degrees = radians*(180/3.141592653589793)
+    return degrees
+
+def get_road_type_onehot(road_type):
+    road_types = {"none": 0, "lane": 1, "road_line": 2, "road_edge": 3, "stop_sign": 4, "crosswalk": 5,
+                      "speed_bump": 6, "other": 7}
+    return np.eye(len(road_types))[road_types[road_type]]
+
+def get_object_type_onehot(agent_type):
+    agent_types = {"unset": 0, "vehicle": 1, "pedestrian": 2, "cyclist": 3, "other": 4}
+    return np.eye(len(agent_types))[agent_types[agent_type]]
+
+max_num_roads_pts_per_polyline = 100
+
+files = os.listdir(PATH)
+
+for e, file in enumerate(files):
+    with open(os.path.join(PATH, file), 'rb') as f:
+        data = json.load(f)
+    filename = file.split('.')[0]
+    seed = file.split('_')[-1]
+    seed = seed.split('.')[0]
+    roads_data = data['roads']
+    num_roads = len(roads_data)
+
+    final_roads = []
+    final_road_type = [] # 0: none; 1: lane; 2: road_line; 3: road_edge; 4: stop_sign; 5: crosswalk; 6: speed_bump; 7: others
+
+    for n in range(num_roads):
+        curr_road_rawdata = roads_data[n]['geometry']
+        if isinstance(curr_road_rawdata, dict):
+            final_roads.append(np.array((curr_road_rawdata['x'], curr_road_rawdata['y'], 1.0)).reshape(1, -1).repeat(max_num_roads_pts_per_polyline, 0))
+            final_road_type.append(get_road_type_onehot(roads_data[n]['type']))
+        else:
+            curr_road = []
+            for p in range(len(curr_road_rawdata)):
+                curr_road.append(np.array((curr_road_rawdata[p]['x'], curr_road_rawdata[p]['y'],1.0)))
+                if len(curr_road) == max_num_roads_pts_per_polyline:
+                    final_roads.append(curr_road)
+                    curr_road = []
+                    final_road_type.append(get_road_type_onehot(roads_data[n]['type']))
+            if len(curr_road) < max_num_roads_pts_per_polyline and len(curr_road) > 0:
+                tmp_curr_road = np.zeros((max_num_roads_pts_per_polyline, 3))
+                tmp_curr_road[:len(curr_road)] = np.array(curr_road)
+                final_roads.append(tmp_curr_road)
+                final_road_type.append(get_road_type_onehot(roads_data[n]['type']))
+    final_roads = np.array(final_roads)
+    final_road_type = np.array(final_road_type)
+
+    agents_data = data['objects']
+    num_agents = len(agents_data)
+    agent_data = []
+    agent_types = []
+    agent_goals = []
+    agent_rewards = []
+    parked_agent_ids = []
+    agent_ctrlsim = []
+    for n in range(num_agents):
+        ag_position  = agents_data[n]['position']
+        x_value = [entry['x'] for entry in ag_position]
+        y_value = [entry['y'] for entry in ag_position]
+        ag_position = np.column_stack((x_value, y_value))
+        ag_heading = np.array(agents_data[n]['heading']).reshape(-1, 1)
+        ag_velocity = agents_data[n]['velocity']
+        x_value = [entry['x'] for entry in ag_velocity]
+        y_value = [entry['y'] for entry in ag_velocity]
+        ag_velocity = np.column_stack((x_value, y_value))
+        if np.linalg.norm(ag_velocity) > 0:
+            parked_agent_ids.append(n)
+        ag_existence = np.array(agents_data[n]['existence']).reshape(-1, 1)
+
+        ag_length = np.ones((len(ag_position), 1)) * agents_data[n]['length']
+        ag_width = np.ones((len(ag_position), 1)) * agents_data[n]['width']
+        agent_type = get_object_type_onehot(agents_data[n]['type'])
+
+        rewards = np.array(agents_data[n]['reward']) * ag_existence
+
+        goal_x = agents_data[n]['goal_position']['x']
+        goal_y = agents_data[n]['goal_position']['y']
+        goal_position = np.repeat(np.array((goal_x, goal_y))[None, :], len(ag_position), 0)
+
+        if agents_data[n]['is_ctrl_sim']:
+            agent_ctrlsim.append(n)
+        
+        ag_state = np.concatenate((ag_position, ag_velocity, ag_heading, ag_length, ag_width, ag_existence), axis=1)
+        agent_data.append(ag_state)
+        agent_types.append(agent_type)
+        agent_goals.append(goal_position)
+        agent_rewards.append(rewards)
+
+    # transform the list to numpy arrays
+    agent_data = np.array(agent_data)
+    agent_types = np.array(agent_types)
+    agent_goals = np.array(agent_goals)
+    agent_rewards = np.array(agent_rewards)
+    agent_ctrlsim = np.array(agent_ctrlsim) 
+    parked_agent_ids = np.array(parked_agent_ids)
+    final_road_points = final_roads
+    agent_states = agent_data
+    goals = agent_goals
+
+    agent_color = 'pink'
+    focal_color = 'lightseagreen'
+    agent_alpha = 0.25
+    focal_agent = 1.0
+
+    for i in range(len(agent_ctrlsim)):
+        scene_id = i
+        other_agent_idx = OTHER_DIX
+        focal_agent_idx = agent_ctrlsim[i]
+        end_timestep = TIME_TO_STOP
+        intermediate_timesteps = [end_timestep]
+        curr_timestep = end_timestep - 10
+        while curr_timestep > 5:
+            intermediate_timesteps.append(curr_timestep)
+            curr_timestep -= 10
+        
+        num_intermediate_timesteps = len(intermediate_timesteps)
+        intermediate_alphas = list((np.arange(num_intermediate_timesteps - 1) / (num_intermediate_timesteps - 1)) * 0.75 + 0.25)
+        intermediate_alphas.append(1.0)
+        intermediate_timesteps = intermediate_timesteps[::-1]
+
+        intermediate_alphas.insert(0, 0.25)
+        intermediate_timesteps.insert(0, 0)
+
+        for r in range(len(final_road_points)):
+            if final_road_type[r, 3] != 1:   # if the road_type is not road_edge, pass to next iteration 
+                continue
+            mask = final_road_points[r, :, 2].astype(bool)  # mask because in line 65 we might add 0 for road_points
+            plt.plot(final_road_points[r, :, 0][mask], final_road_points[r, :, 1][mask], color = 'gray', linewidth = 0.5)   # plot road_edge
+            
+        for r in range(len(final_road_points)):
+            if final_road_type[r, 2] != 1:   # if the road_type is not road_line, pass to next iteration
+                continue
+            mask = final_road_points[r, :, 2].astype(bool)
+            plt.plot(final_road_points[r, :, 0][mask], final_road_points[r, :, 1][mask], color='lightgray', linewidth = 0.3)   # plot road_line
+
+        coordinates = agent_states[:, :, :2]
+        coordinates_mask = agent_states[:, :, -1].astype(bool).copy()  # ag_existence
+        
+        coordinates_mask[:, end_timestep:] = False   
+        unmodified_coordinates_mask = agent_states[:, :, -1].astype(bool)
+
+        for a in range(len(coordinates)):
+            if a == focal_agent_idx:
+                x_min = np.min(coordinates[a, :, 0][unmodified_coordinates_mask[a]]) - 50
+                x_max = np.max(coordinates[a, :, 0][unmodified_coordinates_mask[a]]) + 50
+                y_min = np.min(coordinates[a, :, 1][unmodified_coordinates_mask[a]]) - 50
+                y_max = np.max(coordinates[a, :, 1][unmodified_coordinates_mask[a]]) + 50
+
+                if (x_max - x_min) > (y_max - y_min):
+                    diff = (x_max - x_min) - (y_max - y_min)
+                    diff_side = diff / 2
+                    y_min -= diff_side
+                    y_max += diff_side  
+                else: 
+                    diff = (y_max - y_min) - (x_max - x_min)
+                    diff_side = diff / 2
+                    x_min -= diff_side
+                    x_max += diff_side
+                
+        # draw the rectangle represents the agent
+        for a in range(len(coordinates)):
+            if a == focal_agent_idx:  # agent controlled by ctrl-sim    
+                color = focal_color
+                alpha = focal_agent
+                zord = 3
+                zord_evolve = 5
+            elif a == other_agent_idx:
+                color = agent_color
+                alpha = focal_agent
+                zord = 2
+                zord_evolve = 4
+            else:
+                color = 'bisque'
+                alpha = agent_alpha
+                zord = 2
+                zord_evolve = 4
+
+            if a == focal_agent_idx or a == other_agent_idx:
+                plt.plot(coordinates[a, :, 0][coordinates_mask[a]], coordinates[a, :, 1][coordinates_mask[a]], color=color, linewidth=0.75, zorder=zord, alpha=alpha)
+            else:
+                length = agent_states[a, end_timestep, 5]
+                width = agent_states[a, end_timestep, 6]  
+                bbox_x_min = coordinates[a, end_timestep, 0] - width / 2
+                bbox_y_min = coordinates[a, end_timestep, 1] - length / 2
+                lw = (0.35) / ((x_max - x_min) / 140)
+                rectangle = mpatches.FancyBboxPatch((bbox_x_min, bbox_y_min), width, length, ec='black', fc=color, linewidth=lw, alpha=0.25, 
+                                                    boxstyle=mpatches.BoxStyle("Round", pad=0.3), zorder=4)
+                t = transforms.Affine2D().rotate_deg_around(coordinates[a, end_timestep, 0], coordinates[a, end_timestep, 1], radiens_to_degrees(agent_states[a, end_timestep, 4]) - 90) + plt.gca().transData
+
+                rectangle.set_transform(t)
+
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gca().add_patch(rectangle)
+
+                heading_length = length / 2 + 1.5
+                heading_angle_red = agent_states[a, end_timestep, 4]
+                vehicle_center = coordinates[a, end_timestep, :2]
+
+                line_end_x = vehicle_center[0] + heading_length * math.cos(heading_angle_red)
+                line_end_y = vehicle_center[1] + heading_length * math.sin(heading_angle_red)
+                # draw the headline
+                plt.plot([vehicle_center[0], line_end_x], [vehicle_center[1], line_end_y], color='black', zorder=6, alpha=0.25, linewidth=0.25/((x_max-x_min)/140))
+
+            if a == focal_agent_idx or a == other_agent_idx:
+                for j in range(len(intermediate_timesteps)):
+                    if j == len(intermediate_timesteps) - 1:
+                        ec = 'green'
+                        lw = (0.5) / ((x_max - x_min) / 140) 
+                    else:
+                        ec = 'black'
+                        lw = (0.35) / ((x_max - x_min) / 140)
+                    
+                    length = agent_states[a, intermediate_timesteps[j], 5]
+                    width = agent_states[a, intermediate_timesteps[j], 6]
+                    bbox_x_min = coordinates[a, intermediate_timesteps[j], 0] - width / 2
+                    bbox_y_min = coordinates[a, intermediate_timesteps[j], 1] - length / 2
+
+                    rectangle = mpatches.FancyBboxPatch((bbox_x_min, bbox_y_min), width, length, ec=ec, fc=color, linewidth=lw, alpha=intermediate_alphas[j],
+                                                        boxstyle=mpatches.BoxStyle("Round", pad=0.3), zorder=zord_evolve)
+                    t = transforms.Affine2D().rotate_deg_around(coordinates[a, intermediate_timesteps[j], 0], coordinates[a, intermediate_timesteps[j], 1], radiens_to_degrees(agent_states[a, intermediate_timesteps[j], 4]) - 90) + plt.gca().transData
+
+                    rectangle.set_transform(t)
+                    
+                    plt.gca().set_aspect('equal', adjustable='box')
+                    plt.gca().add_patch(rectangle)
+
+                    if j == len(intermediate_timesteps) - 1:
+                        heading_length = length / 2 + 1.5
+                        heading_angle_red = agent_states[a, end_timestep, 4]
+                        vehicle_center = coordinates[a, end_timestep, :2]
+                        
+                        line_end_x = vehicle_center[0] + heading_length * math.cos(heading_angle_red)
+                        line_end_y = vehicle_center[1] + heading_length * math.sin(heading_angle_red)
+
+                        plt.plot([vehicle_center[0], line_end_x], [vehicle_center[1], line_end_y], color='black', zorder=6, alpha=1.0, linewidth=0.25 / ((x_max-x_min)/140))
+
+                    # add agent_id for each agent
+                    cx, cy = coordinates[a, end_timestep, :2]
+                    plt.text(cx, cy, str(a), fontsize=6, zorder=6, alpha=0.8)
+            
+            plt.xlim(x_min, x_max)
+            plt.ylim(y_min, y_max)
+
+            plt.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+
+            for m in range(len(goals)):
+                if m == focal_agent_idx:
+                    color = focal_color
+                    alpha = focal_agent
+                    ec = 'teal'
+                elif m == other_agent_idx:
+                    color = agent_color
+                    ec = 'violet'
+                else:
+                    continue
+                lw = 1/((x_max - x_min) / 70)
+                plt.scatter(goals[m, 0, 0], goals[m, 0, 1], color=color, s=int(35/((x_max - x_min)/70)), zorder=10, edgecolors='black', linewidth=lw)
+
+        os.makedirs(save_dir, exist_ok=True)
+        image_name = os.path.join(save_dir, f'{filename}_seed{seed}_scene{scene_id}.png')
+        print(f"saving the image {image_name} in {save_dir}")
+        plt.tight_layout()
+        plt.savefig(image_name, dpi=500)
+        plt.clf()
