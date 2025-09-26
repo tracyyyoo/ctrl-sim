@@ -2,8 +2,8 @@
 # Resutls with a roundabout scenario
 <p align="center">
   <img src="assets/roundabout293_original.gif" alt="img1" width="32%">
-  <img src="images/negative_roundabout293.gif" alt="img2" width="32%">
-  <img src="images/positive_roundabout293.gif" alt="img3" width="32%">
+  <img src="assets/negative_roundabout293.gif" alt="img2" width="32%">
+  <img src="assets/positive_roundabout293.gif" alt="img3" width="32%">
 </p>
 
 
