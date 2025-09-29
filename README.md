@@ -13,7 +13,7 @@ Original Scenario from Waymo Open Motion Dataset, with negative tilting and posi
   <img src="assets/147_negative.gif" alt="img2" width="32%">
   <img src="assets/147_negative2.gif" alt="img3" width="32%">
 </p>
-Original scenario at left and negative tilting for both in right. 
+Original scenario at the left and negative tilting for both at the right. 
 
 
 # Other results
